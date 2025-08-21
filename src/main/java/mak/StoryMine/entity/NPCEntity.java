@@ -1,9 +1,14 @@
 package mak.StoryMine.entity;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import mak.StoryMine.animation.AnimationRegistry;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
@@ -15,15 +20,26 @@ import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 
+import javax.annotation.Nullable;
+
 public class NPCEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> DATA_ANIMATION_STATE =
             SynchedEntityData.defineId(NPCEntity.class, EntityDataSerializers.STRING);
 
     private int animationTimer;
 
+    private BlockPos walkingTarget;
+    private double walkingSpeed = 1.0;
+
+    private JsonArray currentAnimFrames = null;
+    private int animTick = 0;
+    private int frameDelay = 20;
+
+    private ResourceLocation mimicType;
+
+
     public NPCEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
-        this.setNoAi(true);
     }
 
     @Override
@@ -44,8 +60,36 @@ public class NPCEntity extends PathfinderMob {
     @Override
     public void tick() {
         super.tick();
-        if (!"idle".equals(this.getAnimationState()) && --this.animationTimer <= 0) {
-            this.entityData.set(DATA_ANIMATION_STATE, "idle");
+
+        if (currentAnimFrames != null) {
+            if (this.tickCount % frameDelay == 0) {
+                int index = animTick / frameDelay;
+                if (index < currentAnimFrames.size()) {
+                    String frameState = currentAnimFrames.get(index).getAsString();
+                    this.setAnimationState(frameState);
+                    animTick++;
+                } else {
+                    currentAnimFrames = null;
+                    this.setAnimationState("idle");
+                }
+            }
+        } else {
+            if (!"idle".equals(this.getAnimationState()) && --this.animationTimer <= 0) {
+                this.entityData.set(DATA_ANIMATION_STATE, "idle");
+            }
+        }
+
+        if (walkingTarget != null) {
+            if (this.blockPosition().distSqr(walkingTarget) > 2) {
+                this.getNavigation().moveTo(
+                        walkingTarget.getX(),
+                        walkingTarget.getY(),
+                        walkingTarget.getZ(),
+                        walkingSpeed
+                );
+            } else {
+                clearWalkingTarget();
+            }
         }
     }
 
@@ -53,7 +97,6 @@ public class NPCEntity extends PathfinderMob {
     protected void registerGoals() {
         this.goalSelector.removeAllGoals(null);
         this.targetSelector.removeAllGoals(null);
-
         this.goalSelector.addGoal(0, new FloatGoal(this));
     }
 
@@ -65,27 +108,61 @@ public class NPCEntity extends PathfinderMob {
     }
 
     @Override
-    protected InteractionResult mobInteract(Player player, InteractionHand hand) {
-        if (!this.level().isClientSide && hand == InteractionHand.MAIN_HAND) {
-            String npcName = this.getCustomName() != null ?
-                    this.getCustomName().getString() : "NPC";
-
-            this.level().players().forEach(p ->
-                    p.sendSystemMessage(Component.literal(
-                            npcName + ": Привет, " + player.getName().getString() + "!"
-                    ))
-            );
-
-            return InteractionResult.SUCCESS;
-        }
-        return super.mobInteract(player, hand);
-    }
-
-    @Override
     public boolean isPushable() {
         return false;
     }
 
     @Override
     protected void pushEntities() {}
+
+    public void setWalkingTarget(BlockPos pos, double speed) {
+        this.walkingTarget = pos;
+        this.walkingSpeed = speed;
+        this.setNoAi(false);
+    }
+
+    public BlockPos getWalkingTarget() {
+        return this.walkingTarget;
+    }
+
+    public double getWalkingSpeed() {
+        return this.walkingSpeed;
+    }
+
+    public boolean hasWalkingTarget() {
+        return this.walkingTarget != null;
+    }
+
+    public void clearWalkingTarget() {
+        this.walkingTarget = null;
+        this.getNavigation().stop();
+        this.setNoAi(true);
+    }
+
+    public void playAnimation(String animName) {
+        JsonObject anim = AnimationRegistry.get(animName);
+        if (anim == null) {
+            System.out.println("[StoryMine] Animation " + animName + " not found!");
+            return;
+        }
+
+        if (anim.has("state")) {
+            this.setAnimationState(anim.get("state").getAsString());
+        }
+
+        if (anim.has("frames")) {
+            this.currentAnimFrames = anim.getAsJsonArray("frames");
+            this.animTick = 0;
+            this.frameDelay = anim.has("frameDelay") ? anim.get("frameDelay").getAsInt() : 20;
+        }
+    }
+
+    public void setMimicType(ResourceLocation type) {
+        this.mimicType = type;
+    }
+
+    @Nullable
+    public ResourceLocation getMimicType() {
+        return this.mimicType;
+    }
 }

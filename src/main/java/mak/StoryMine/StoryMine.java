@@ -1,14 +1,17 @@
 package mak.StoryMine;
 
+import mak.StoryMine.animation.AnimationRegistry;
 import mak.StoryMine.entity.NPCEntity;
 import mak.StoryMine.entity.NPCEntityType;
 import mak.StoryMine.entity.NPCRenderer;
 import mak.StoryMine.script.ScriptExecutor;
 import mak.StoryMine.script.ScriptManager;
 import net.minecraft.client.renderer.entity.EntityRenderers;
+import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 
 import net.neoforged.api.distmarker.Dist;
@@ -18,6 +21,8 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+
+import java.nio.file.Path;
 
 @Mod(StoryMine.MOD_ID)
 public class StoryMine {
@@ -30,11 +35,14 @@ public class StoryMine {
 
         NPCEntityType.register(modEventBus);
         NeoForge.EVENT_BUS.register(this);
-
-        NeoForge.EVENT_BUS.register(ScriptExecutor.class);
     }
 
-    private void commonSetup(final FMLCommonSetupEvent event) {}
+    private void commonSetup(final FMLCommonSetupEvent event) {
+        Path gameDir = FMLPaths.GAMEDIR.get();
+        Path animsFolder = gameDir.resolve("scripts").resolve("anims");
+
+        AnimationRegistry.loadAnimations(animsFolder);
+    }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event) {}
 
@@ -43,7 +51,7 @@ public class StoryMine {
     }
 
     @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
+    public void onServerStarted(ServerStartedEvent event) {
         ScriptManager.init(event.getServer());
     }
 

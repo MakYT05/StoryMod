@@ -4,6 +4,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,7 +33,16 @@ public class ScriptManager {
 
             String content = Files.readString(scriptFile);
             JsonElement parsed = JsonParser.parseString(content);
-            ScriptExecutor.execute(parsed.getAsJsonObject(), server);
+
+            if (server.getPlayerList().getPlayers().isEmpty()) {
+                server.execute(() -> {
+                    NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent e) -> {
+                        ScriptExecutor.execute(parsed.getAsJsonObject(), server);
+                    });
+                });
+            } else {
+                ScriptExecutor.execute(parsed.getAsJsonObject(), server);
+            }
 
         } catch (IOException e) {
             System.err.println("[StoryMine] Ошибка ScriptManager:");

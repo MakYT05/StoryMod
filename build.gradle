@@ -20,6 +20,20 @@ group = mod_group_id
 
 repositories {
     mavenLocal()
+
+    repositories {
+        maven { url = "https://maven.neoforged.net/releases" }
+
+        maven {
+            name = "Zeitheron Maven"
+            url = "https://maven.zeith.org/"
+            content {
+                includeGroupByRegex "org\\.zeith.*"
+            }
+        }
+
+        maven { url = "https://modmaven.dev/" }
+    }
 }
 
 base {
@@ -125,6 +139,9 @@ dependencies {
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
     // The group id is ignored when searching -- in this case, it is "blank"
     // implementation "blank:coolmod-${mc_version}:${coolmod_version}"
+
+    implementation "org.zeith.hammerlib:HammerLib-1.21:21.0.14"
+    implementation "org.zeith.hammeranims:HammerAnimations-1.21:21.0.38"
 
     // Example mod dependency using a file as dependency
     // implementation files("libs/coolmod-${mc_version}-${coolmod_version}.jar")
